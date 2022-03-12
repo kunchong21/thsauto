@@ -1,6 +1,18 @@
 # thsauto
 同花顺自动下单工具
 
+把pip目录复制到C盘的用户目录下 
+
+pip install flask
+pip install pywin32
+pip install requests
+pip install Pillow
+
+pip install ddddocr
+ddddocr识别率不高 使用tesseroct 最新版效果更好 使用ddddocr要求安装vs2019  
+
+从 https://github.com/UB-Mannheim/tesseract/wiki  
+下载对应的程序安装。并把安装目录设置到环境变量path
 ```
 python .\server.py  192.168.0.116 5000 C:\Users\match\Desktop\THS\xiadan.exe
 ```

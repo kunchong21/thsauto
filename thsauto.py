@@ -13,8 +13,8 @@ import math
 import os
 import captcha
 from PIL import Image
-import ddddocr
-DdddOcr = ddddocr.DdddOcr()
+# import ddddocr
+# DdddOcr = ddddocr.DdddOcr()
 
 from const import VK_CODE, BALANCE_CONTROL_ID_GROUP
 
@@ -570,19 +570,20 @@ class ThsAuto:
                 hot_key(['enter'])
                 hot_key(['esc'])
             else:
-                with open('ocr.png', 'rb') as f:
-                    data = f.read()
-                    print(time.time())
-                    code = DdddOcr.classification(data)
-                    print("验证码："+ code)
-                    print(time.time())
-                    ctrl = ctypes.windll.user32.GetWindow(ocr, win32con.GW_HWNDNEXT)
-                    ctrl = ctypes.windll.user32.GetWindow(ctrl, win32con.GW_HWNDNEXT)
-                    ctrl = ctypes.windll.user32.GetWindow(ctrl, win32con.GW_HWNDNEXT)
-                    set_text(ctrl, code)
-                    hot_key(['enter'])
-                    hot_key(['enter'])
-                    hot_key(['esc'])
+                hot_key(['esc'])
+                # with open('ocr.png', 'rb') as f:
+                #     data = f.read()
+                #     print(time.time())
+                #     code = DdddOcr.classification(data)
+                #     print("验证码："+ code)
+                #     print(time.time())
+                #     ctrl = ctypes.windll.user32.GetWindow(ocr, win32con.GW_HWNDNEXT)
+                #     ctrl = ctypes.windll.user32.GetWindow(ctrl, win32con.GW_HWNDNEXT)
+                #     ctrl = ctypes.windll.user32.GetWindow(ctrl, win32con.GW_HWNDNEXT)
+                #     set_text(ctrl, code)
+                #     hot_key(['enter'])
+                #     hot_key(['enter'])
+                #     hot_key(['esc'])
 
     def capture_window(self, hwnd, file_name):
         left, top, right, bottom = win32gui.GetWindowRect(hwnd)

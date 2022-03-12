@@ -1,9 +1,12 @@
 import functools
-from flask import Flask, request, jsonify
+
+import flask
+from flask import Flask, request, jsonify, render_template, json
 from thsauto import ThsAuto
 import time
 import sys
 import threading
+import realHq
 
 import os
 
@@ -28,6 +31,16 @@ def interval_call(func):
         global next_time
         lock.acquire()
         now = time.time()
+        print(request.url)
+        print(request.values)
+        token = request.values.get("token")
+        if token is not None and token == "xsk":
+            print(token)
+        else:
+            rt = ({'code': 1, 'status': 'failed', 'msg': '{}'.format("个人测试使用")}, 400)
+            lock.release()
+            return rt
+
         if now < next_time:
             time.sleep(next_time - now)
         try:
@@ -39,33 +52,49 @@ def interval_call(func):
         return rt
     return wrapper
 
+@app.route('/thsauto/trader')
+@interval_call
+def trader():
+    #return 'Hello World! %s'%name
+    return render_template('trade.html')
+
+def callback(result):
+    callback = request.args.get('callback', None)
+    print(result)
+    if callback is not None:
+        return callback + "(" + json.dumps(result) + ")"
+    else:
+        return jsonify(result), 200
+
 @app.route('/thsauto/balance', methods = ['GET'])
 @interval_call
 def get_balance():
     auto.active_mian_window()
     result = auto.get_balance()
-    return jsonify(result), 200
+    return callback(result)
 
 @app.route('/thsauto/position', methods = ['GET'])
 @interval_call
 def get_position():
     auto.active_mian_window()
     result = auto.get_position()
-    return jsonify(result), 200
+    print(result)
+
+    return callback(result)
 
 @app.route('/thsauto/orders/active', methods = ['GET'])
 @interval_call
 def get_active_orders():
     auto.active_mian_window()
     result = auto.get_active_orders()
-    return jsonify(result), 200
+    return callback(result)
 
 @app.route('/thsauto/orders/filled', methods = ['GET'])
 @interval_call
 def get_filled_orders():
     auto.active_mian_window()
     result = auto.get_filled_orders()
-    return jsonify(result), 200
+    return callback(result)
 
 @app.route('/thsauto/sell', methods = ['GET'])
 @interval_call
@@ -77,7 +106,22 @@ def sell():
     if price is not None:
         price = float(price)
     result = auto.sell(stock_no=stock, amount=int(amount), price=price)
-    return jsonify(result), 200
+    return callback(result)
+
+@app.route('/thsauto/sellnowprice', methods = ['GET'])
+@interval_call
+def sellnowprice():
+    auto.active_mian_window()
+    stock = request.args['stock_no']
+    amount = request.args['amount']
+
+    hqarr = realHq.getReal(stock)
+    price = hqarr[3]
+    if price is not None:
+        price = float(price)
+    result = auto.sell(stock_no=stock, amount=int(amount), price=price)
+    return callback(result)
+
 
 @app.route('/thsauto/buy', methods = ['GET'])
 @interval_call
@@ -89,7 +133,10 @@ def buy():
     if price is not None:
         price = float(price)
     result = auto.buy(stock_no=stock, amount=int(amount), price=price)
-    return jsonify(result), 200
+    return callback(result)
+
+
+
 
 @app.route('/thsauto/buy/kc', methods = ['GET'])
 @interval_call
@@ -101,7 +148,7 @@ def buy_kc():
     if price is not None:
         price = float(price)
     result = auto.buy_kc(stock_no=stock, amount=int(amount), price=price)
-    return jsonify(result), 200
+    return callback(result)
 
 @app.route('/thsauto/sell/kc', methods = ['GET'])
 @interval_call
@@ -113,7 +160,7 @@ def sell_kc():
     if price is not None:
         price = float(price)
     result = auto.sell_kc(stock_no=stock, amount=int(amount), price=price)
-    return jsonify(result), 200
+    return callback(result)
 
 @app.route('/thsauto/cancel', methods = ['GET'])
 @interval_call
@@ -121,14 +168,25 @@ def cancel():
     auto.active_mian_window()
     entrust_no = request.args['entrust_no']
     result = auto.cancel(entrust_no=entrust_no)
-    return jsonify(result), 200
+    return callback(result)
+
+@app.route('/thsauto/cancelquick', methods = ['GET'])
+@interval_call
+def cancelquick():
+    auto.active_mian_window()
+    backflag = request.args['backflag']
+    print(backflag)
+    result = auto.cancelquick(backflag)
+    return callback(result)
+
 
 @app.route('/thsauto/client/kill', methods = ['GET'])
 @interval_call
 def kill_client():
     auto.active_mian_window()
     auto.kill_client()
-    return jsonify({'code': 0, 'status': 'succeed'}), 200
+    result = "{'code': 0, 'status': 'succeed'}"
+    return callback(result)
 
 
 @app.route('/thsauto/client/restart', methods = ['GET'])
@@ -140,10 +198,10 @@ def restart_client():
     time.sleep(5)
     auto.bind_client()
     if auto.hwnd_main is None:
-        return jsonify({'code': 1, 'status': 'failed'}), 200
+        result = "{'code': 1, 'status': 'failed'}"
     else:
-        return jsonify({'code': 0, 'status': 'succeed'}), 200
-
+        result = "{'code': 0, 'status': 'succeed'}"
+    return callback(result)
 
 @app.route('/thsauto/test', methods = ['GET'])
 @interval_call
@@ -154,7 +212,7 @@ def test():
 
 
 if __name__ == '__main__':
-    host = '127.0.0.1'
+    host = '0.0.0.0'
     port = 5000
     if len(sys.argv) > 1:
         host = sys.argv[1]

@@ -11,7 +11,7 @@ import ctypes
 import time
 import math
 import os
-
+import captcha
 from PIL import Image
 import ddddocr
 DdddOcr = ddddocr.DdddOcr()
@@ -45,12 +45,15 @@ def set_text(hwnd, string):
     win32api.keybd_event(VK_CODE['backspace'], 0, 0, 0)
     win32api.keybd_event(VK_CODE['backspace'], 0, win32con.KEYEVENTF_KEYUP, 0)
     for char in string:
+
         if char.isupper():
+            # print("upper")
             win32api.keybd_event(0xA0, 0, 0, 0)
             win32api.keybd_event(VK_CODE[char.lower()], 0, 0, 0)
             win32api.keybd_event(VK_CODE[char.lower()], 0, win32con.KEYEVENTF_KEYUP, 0)
             win32api.keybd_event(0xA0, 0, win32con.KEYEVENTF_KEYUP, 0)
         else:
+            # print("not upper")
             win32api.keybd_event(VK_CODE[char], 0, 0, 0)
             win32api.keybd_event(VK_CODE[char], 0, win32con.KEYEVENTF_KEYUP, 0)
 
@@ -84,6 +87,11 @@ class ThsAuto:
         if hwnd > 0:
             win32gui.SetForegroundWindow(hwnd)
             self.hwnd_main = hwnd
+        else:
+            print("xiadan.exe not start !!")
+            return
+            SystemExit
+
 
     def kill_client(self):
         self.hwnd_main = None
@@ -142,6 +150,7 @@ class ThsAuto:
         popups = []
         windows = []            
         win32gui.EnumThreadWindows(tid, lambda hwnd, l: l.append(hwnd), windows)
+
         for hwnd in windows:
             if not handler(hwnd, popups):
                 break
@@ -177,7 +186,7 @@ class ThsAuto:
         self.copy_table(ctrl)
 
         data = None
-        retry = 0
+        retry = 3
         while not data and retry < retry_time:
             retry += 1
             time.sleep(sleep_time)
@@ -200,7 +209,7 @@ class ThsAuto:
         self.copy_table(ctrl)
         
         data = None
-        retry = 0
+        retry = 3
         while not data and retry < retry_time:
             retry += 1
             time.sleep(sleep_time)
@@ -245,7 +254,10 @@ class ThsAuto:
         time.sleep(sleep_time)
         if price is not None:
             time.sleep(sleep_time)
-            price = '%.3f' % price
+            if stock_no.startswith("12"):
+                price = '%.3f' % price
+            else:
+                price = '%.2f' % price
             ctrl = win32gui.GetDlgItem(hwnd, 0x409)
             set_text(ctrl, price)
             time.sleep(sleep_time)
@@ -254,7 +266,7 @@ class ThsAuto:
         time.sleep(sleep_time)
         hot_key(['enter'])
         result = None
-        retry = 0
+        retry = 3
         while retry < retry_time:
             time.sleep(sleep_time)
             result = self.get_result()
@@ -279,7 +291,10 @@ class ThsAuto:
         time.sleep(sleep_time)
         if price is not None:
             time.sleep(sleep_time)
-            price = '%.3f' % price
+            if stock_no.startswith("12"):
+                price = '%.3f' % price
+            else:
+                price = '%.2f' % price
             ctrl = win32gui.GetDlgItem(hwnd, 0x409)
             set_text(ctrl, price)
             time.sleep(sleep_time)
@@ -407,6 +422,19 @@ class ThsAuto:
             return {'code': 0, 'status': 'succeed'}
         return {'code': 1, 'status': 'failed'}
 
+    def cancelquick(self,backflag):
+        self.switch_to_normal()
+        hot_key(['F3'])
+
+        # time.sleep(sleep_time)
+        hot_key([backflag.lower()])
+
+        hot_key(['enter'])
+
+        return {'code': 0, 'status': 'succeed'}
+
+
+
     def get_result(self, cid=0x3EC):
         tid, pid = win32process.GetWindowThreadProcessId(self.hwnd_main)
         def enum_children(hwnd, results):
@@ -523,18 +551,38 @@ class ThsAuto:
         hot_key(['ctrl', 'c'])
         self.input_ocr()
 
-    def input_ocr(self):  
+    def input_ocr(self):
+        time.sleep(0.2)
         ocr = self.get_ocr_hwnd()
         if ocr > 0:
             self.capture_window(ocr, 'ocr.png')
-            with open('ocr.png', 'rb') as f:
-                data = f.read()
-                code = DdddOcr.classification(data)
+
+            captcha_num = captcha.invoke_tesseract_to_recognize("ocr.png").strip()  # 识别验证码
+            print("######:" + captcha_num)
+            # captcha_num = "".join(filter(str.isalpha,captcha_num.split()))
+            # print("######2:"+captcha_num)
+            if len(captcha_num) == 4:
                 ctrl = ctypes.windll.user32.GetWindow(ocr, win32con.GW_HWNDNEXT)
                 ctrl = ctypes.windll.user32.GetWindow(ctrl, win32con.GW_HWNDNEXT)
                 ctrl = ctypes.windll.user32.GetWindow(ctrl, win32con.GW_HWNDNEXT)
-                set_text(ctrl, code)
+                set_text(ctrl, captcha_num)
                 hot_key(['enter'])
+                hot_key(['enter'])
+                hot_key(['esc'])
+            else:
+                with open('ocr.png', 'rb') as f:
+                    data = f.read()
+                    print(time.time())
+                    code = DdddOcr.classification(data)
+                    print("验证码："+ code)
+                    print(time.time())
+                    ctrl = ctypes.windll.user32.GetWindow(ocr, win32con.GW_HWNDNEXT)
+                    ctrl = ctypes.windll.user32.GetWindow(ctrl, win32con.GW_HWNDNEXT)
+                    ctrl = ctypes.windll.user32.GetWindow(ctrl, win32con.GW_HWNDNEXT)
+                    set_text(ctrl, code)
+                    hot_key(['enter'])
+                    hot_key(['enter'])
+                    hot_key(['esc'])
 
     def capture_window(self, hwnd, file_name):
         left, top, right, bottom = win32gui.GetWindowRect(hwnd)
@@ -559,6 +607,7 @@ class ThsAuto:
         win32gui.ReleaseDC(hwnd, hdc)
 
         img.save(file_name)
+        # img.save("./yzm/"+time.strftime("%y%m%d%H%M%S")+file_name)
 
 
     def test(self):
